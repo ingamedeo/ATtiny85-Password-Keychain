@@ -1,7 +1,7 @@
 ATtiny85-V-USB-String-Replay
 =========
 
-V-USB Library based project
+V-USB Library based project, heavily based on EasyLogger.
 
 You can send a string to your ATtiny85 via USB, press a button and have the string typed back to your computer via HID Keyboard.
 
