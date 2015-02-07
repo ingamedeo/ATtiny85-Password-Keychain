@@ -1,11 +1,9 @@
 # Name: Makefile
-# Project: EasyLogger
+# Project: ATtiny85-V-USB-String-Replay
 # Author: Christian Starkjohann
-# Creation Date: 2007-06-23
-# Tabsize: 4
-# Copyright: (c) 2007 by OBJECTIVE DEVELOPMENT Software GmbH
-# License: GPLv2.
-# This Revision: $Id$
+# Edited: Amedeo Arch
+# Creation Date: 08-05-2015
+# Copyright: (c) Amedeo Arch / 2007 by OBJECTIVE DEVELOPMENT Software GmbH
 
 DEVICE=attiny85
 AVRDUDE = avrdude -p attiny85 -P /dev/ttyACM0 -b 19200 -c avrisp -v
