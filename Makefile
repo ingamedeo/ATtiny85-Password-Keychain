@@ -38,6 +38,8 @@ all:	main.hex
 flash:	all
 	$(AVRDUDE) -U flash:w:main.hex:i
 
+utility: flash_utility/flash.c
+	gcc -O -Wall flash_utility/flash.c -o flash_utility/flash -lusb
 
 # Fuse high byte:
 # 0xdd = 1 1 0 1   1 1 0 1

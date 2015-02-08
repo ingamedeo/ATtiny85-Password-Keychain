@@ -26,14 +26,18 @@ PB4 = LED output (active high)
 PB0, PB2 = USB data lines
 */
 
-#define BIT_LED 4
-#define BIT_KEY 1
+#define LED_PIN (1<<PB4)
+#define BUTTON1_PIN (1<<PB1)
 
 #define abs(x) ((x) > 0 ? (x) : (-x))
 #define arrayLen(x)  (sizeof(x) / sizeof(x[0]))
 
 #define START_FLAG 100
 #define WAIT_FLAG 101
+
+/* Minimum 2! */
+#define SKIP_START 10
+#define ST_STRING_SIZE_BLOCK 1
 
 #define USB_WRITE_COMMAND 4
 
@@ -49,8 +53,7 @@ static uchar    idleRate;           /* in 4 ms units */
 
 volatile static uchar LED_state = 0xff; // received from PC
 
-static uchar string[101]; //'A', 0, 'm', 0, 'E', 0, '1', 0, '0', 0, '7', 0
-static uchar receivedProcessed = 0, receivedLength = 0; //Used to receive data from PC
+static uint16_t receivedProcessed = 0, receivedLength = 0; //Used to receive data from PC
 
 const PROGMEM char usbHidReportDescriptor[USB_CFG_HID_REPORT_DESCRIPTOR_LENGTH] = { /* USB report descriptor */
     0x05, 0x01,                    // USAGE_PAGE (Generic Desktop)
@@ -157,7 +160,7 @@ uchar	usbFunctionSetup(uchar data[8]) {
             return 0;
     }
 } else if (rq->bRequest == USB_WRITE_COMMAND) {
-    receivedLength = (uchar) rq->wLength.word; //Save length of the data we are receiving from a computer
+    receivedLength = (uint16_t) rq->wLength.word; //Save length of the data we are receiving from a computer
     receivedProcessed = 0;
     return USB_NO_MSG;
 }
@@ -167,27 +170,17 @@ return 0;
 
 // This gets called when data is sent from PC to the device
 uchar usbFunctionWrite(uchar *data, uchar len) {
-    uchar i;
+    PORTB |= LED_PIN; //Turn LED On
+    uint16_t i;
 
-    for(i = 0; receivedProcessed < receivedLength && i < len; i++, receivedProcessed++)
-        string[receivedProcessed] = data[i];
+    /* Write data from EEPROM */
+    eeprom_write_word(ST_STRING_SIZE_BLOCK, receivedLength); //Write total length first, we won't read further
+    for (i = 0; receivedProcessed < receivedLength && i < len; i++, receivedProcessed++) {
+        eeprom_write_byte(receivedProcessed+SKIP_START, data[i]);
+    }
 
     if (receivedProcessed == receivedLength) {
-
-        uchar k;
-        for (k = receivedLength; k < arrayLen(string); k++) {
-            string[k] = 0;
-        }
-
-        /* Write data from EEPROM */
-        uint16_t stringLength = arrayLen(string);
-        eeprom_write_word(2, stringLength);
-
-        uint16_t j;
-        for (j = 0; j < stringLength; j++) {
-            eeprom_write_byte(j+10, string[j]);
-        }
-
+        PORTB &= ~LED_PIN; //Turn LED Off at the end
         return 1; // 1 if we received it all, 0 if not
     } else {
         return 0;
@@ -244,7 +237,7 @@ void    usbEventResetReady(void) {
     wdt_reset();
     usbPoll();
 
-    int cycles = 0;
+    uint16_t cycles = 0;
 
     while (cycles<2) {
         if (usbInterruptIsReady()) {
@@ -269,21 +262,14 @@ int main(void) {
         OSCCAL = calibrationValue;
     }
 
-    /* Read data from EEPROM */
-    uint16_t stringLength = eeprom_read_word(2);
-    uint16_t j;
-    for (j = 0; (j < stringLength && j<100); j++) {
-        string[j] = eeprom_read_byte(j+10);
-    }
-    
     usbDeviceDisconnect();
     for(i=0;i<20;i++){  /* 300 ms disconnect */
     _delay_ms(15);
 }
 usbDeviceConnect();
 
-    DDRB |= 1 << BIT_LED;   /* output for LED */
-    PORTB |= 1 << BIT_KEY;  /* pull-up on key input */
+    DDRB |= LED_PIN;   /* output for LED */
+    PORTB |= BUTTON1_PIN;  /* pull-up on key input */
 
 wdt_enable(WDTO_1S);
 
@@ -296,14 +282,21 @@ usbInit();
     usbPoll();
 
     if (status==START_FLAG) {
-        int count;
-        for (count = 0; count < arrayLen(string); count++) {
-            sendKey(string[count]);
+        PORTB |= LED_PIN; //Turn LED On
+
+        /* Read data from EEPROM */
+        uint16_t stringLength = eeprom_read_word(ST_STRING_SIZE_BLOCK);
+
+        uint16_t count;
+        for (count = 0; count < stringLength; count++) {
+            uchar currentChar = eeprom_read_byte(count+SKIP_START);
+            sendKey(currentChar);
         }
+        PORTB &= ~LED_PIN; //Turn LED Off at the end
         status = WAIT_FLAG;
     }
 
-    thisState = !(PINB & (1<<PB1)); //True when pressed, false otherwise - Next! false
+    thisState = !(PINB & BUTTON1_PIN); //True when pressed, false otherwise - Next! false
     if (thisState && !prevState) { //True and (!False = True) PASSED - Next! False && False
         status = START_FLAG;
         prevState = !prevState;
