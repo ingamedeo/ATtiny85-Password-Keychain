@@ -18,7 +18,7 @@ COMPILE = avr-gcc -Wall -Os -Iusbdrv -mmcu=attiny85 -DF_CPU=16500000 -DDEBUG_LEV
 OBJECTS = usbdrv/usbdrv.o usbdrv/usbdrvasm.o usbdrv/oddebug.o main.o
 
 # symbolic targets:
-all:	main.hex
+all:	main.hex utility
 
 .c.o:
 	$(COMPILE) -c $< -o $@
@@ -64,7 +64,7 @@ readcal:
 
 
 clean:
-	rm -f main.hex main.lst main.obj main.cof main.list main.map main.eep.hex main.bin *.o usbdrv/*.o main.s usbdrv/oddebug.s usbdrv/usbdrv.s
+	rm -f main.hex main.lst main.obj main.cof main.list main.map main.eep.hex main.bin *.o usbdrv/*.o main.s usbdrv/oddebug.s usbdrv/usbdrv.s flash_utility/flash
 
 # file targets:
 main.bin:	$(OBJECTS)
