@@ -28,6 +28,7 @@ PB0, PB2 = USB data lines
 
 #define LED_PIN (1<<PB4)
 #define BUTTON1_PIN (1<<PB1)
+#define BUTTON2_PIN (1<<PB3)
 
 #define abs(x) ((x) > 0 ? (x) : (-x))
 #define arrayLen(x)  (sizeof(x) / sizeof(x[0]))
@@ -35,9 +36,9 @@ PB0, PB2 = USB data lines
 #define START_FLAG 100
 #define WAIT_FLAG 101
 
-/* Minimum 2! */
-#define SKIP_START 10
-#define ST_STRING_SIZE_BLOCK 1
+#define SKIP_START 15
+#define SIZE_BLOCK_START 1 //Start saving the string sizes at block 1 (2nd block and 2 blocks length) (8 blocks 4*2)
+#define FLAG_START 9 //These are flags (1 if IN USE, 0 otherwise)
 
 #define USB_WRITE_COMMAND 4
 
@@ -53,7 +54,7 @@ static uchar    idleRate;           /* in 4 ms units */
 
 volatile static uchar LED_state = 0xff; // received from PC
 
-static uint16_t receivedProcessed = 0, receivedLength = 0; //Used to receive data from PC
+uint16_t receivedProcessed = 0, receivedLength = 0, buttonNumber, sizeBlock, startOffset; //Used to receive data from PC
 
 const PROGMEM char usbHidReportDescriptor[USB_CFG_HID_REPORT_DESCRIPTOR_LENGTH] = { /* USB report descriptor */
     0x05, 0x01,                    // USAGE_PAGE (Generic Desktop)
@@ -161,6 +162,54 @@ uchar	usbFunctionSetup(uchar data[8]) {
     }
 } else if (rq->bRequest == USB_WRITE_COMMAND) {
     receivedLength = (uint16_t) rq->wLength.word; //Save length of the data we are receiving from a computer
+    buttonNumber = (uint16_t) rq->wValue.word; //Get button number
+
+    sizeBlock = SIZE_BLOCK_START+(buttonNumber*2); //Select size store block (NOTE! It's a uint16_t - unsigned int - it takes up 2 bytes!)
+    startOffset = SKIP_START;
+
+    uchar prevFlag = 0;
+    uchar thisFlag = eeprom_read_byte(buttonNumber+9);
+    uchar nextFlag = 0;
+
+    if (buttonNumber!=1) { //Last button
+        nextFlag = eeprom_read_byte(buttonNumber+1+9);
+    }
+
+    /* The lengths of this, prev and succ strings */
+    uint16_t prevLen = 0;
+    uint16_t thisOldLen = 0;
+    uint16_t nextLen = 0;
+    if (thisFlag == 1) { thisOldLen = eeprom_read_word(sizeBlock); }
+    if (nextFlag == 1) { nextLen = eeprom_read_word(sizeBlock+2); }
+
+    if (buttonNumber!=0) {
+        prevFlag = eeprom_read_byte(buttonNumber+9-1); //Read prev flag
+        if (prevFlag == 1) { prevLen = eeprom_read_word(sizeBlock-2); }
+        startOffset = startOffset+prevLen; //I start writing from this block
+    }
+
+    if (nextLen != 0) {
+    /* This stuff rewrites the data (starting from the end shifted one position to the right (or left), helps not to override it) */
+    int k;
+    if (thisOldLen < receivedLength) { //From right to left
+        for (k = nextLen-1; k >=0; k--) { //-1? Length is read as < not =<
+        uchar currentChar = eeprom_read_byte(k+startOffset+thisOldLen);
+        if (currentChar != 0xff) {
+          eeprom_write_byte(k+startOffset+receivedLength, currentChar);
+        }
+    }
+    } else { //From left to right
+        for (k = 0; k < nextLen; k++) {
+       uchar currentChar = eeprom_read_byte(k+startOffset+thisOldLen);
+        if (currentChar != 0xff) {
+          eeprom_write_byte(k+startOffset+receivedLength, currentChar);
+        }
+    }
+    }
+}
+
+    eeprom_write_byte(buttonNumber+9, 1); //Set this one to 1
+
     receivedProcessed = 0;
     return USB_NO_MSG;
 }
@@ -171,12 +220,13 @@ return 0;
 // This gets called when data is sent from PC to the device
 uchar usbFunctionWrite(uchar *data, uchar len) {
     PORTB |= LED_PIN; //Turn LED On
+
     uint16_t i;
 
     /* Write data from EEPROM */
-    eeprom_write_word(ST_STRING_SIZE_BLOCK, receivedLength); //Write total length first, we won't read further
+    eeprom_write_word(sizeBlock, receivedLength); //Write total length first, we won't read further
     for (i = 0; receivedProcessed < receivedLength && i < len; i++, receivedProcessed++) {
-        eeprom_write_byte(receivedProcessed+SKIP_START, data[i]);
+        eeprom_write_byte(receivedProcessed+startOffset, data[i]);
     }
 
     if (receivedProcessed == receivedLength) {
@@ -253,8 +303,11 @@ void    usbEventResetReady(void) {
 }
 
 int main(void) {
-    int i, button_release_counter = 0, status = WAIT_FLAG;
-    bool thisState = false, prevState = false;
+    uint16_t i;
+    bool prevState = false, thisState;
+
+    bool prevState2 = false, thisState2;
+
     uchar   calibrationValue;
 
     calibrationValue = eeprom_read_byte(0); /* calibration value from last time */
@@ -281,33 +334,58 @@ usbInit();
     wdt_reset();
     usbPoll();
 
-    if (status==START_FLAG) {
+    thisState = !(PINB & BUTTON1_PIN); //True when pressed, false otherwise - Next! false
+    if (thisState && !prevState) { //True and (!False = True) PASSED - Next! False && False
+        
         PORTB |= LED_PIN; //Turn LED On
 
         /* Read data from EEPROM */
-        uint16_t stringLength = eeprom_read_word(ST_STRING_SIZE_BLOCK);
+        uint16_t stringLen = eeprom_read_word(SIZE_BLOCK_START);
 
         uint16_t count;
-        for (count = 0; count < stringLength; count++) {
+        for (count = 0; count < stringLen; count++) {
             uchar currentChar = eeprom_read_byte(count+SKIP_START);
             sendKey(currentChar);
         }
-        PORTB &= ~LED_PIN; //Turn LED Off at the end
-        status = WAIT_FLAG;
-    }
 
-    thisState = !(PINB & BUTTON1_PIN); //True when pressed, false otherwise - Next! false
-    if (thisState && !prevState) { //True and (!False = True) PASSED - Next! False && False
-        status = START_FLAG;
+        PORTB &= ~LED_PIN; //Turn LED Off at the end
+
+        _delay_ms(50); //Delay just a bit
+
         prevState = !prevState;
-        button_release_counter = 0;
     } else if (!thisState && prevState) {
         prevState = !prevState;
     }
 
-if(button_release_counter < 255) {
-button_release_counter++; // increase release counter
-}
+    //Button 2
+    thisState2 = !(PINB & BUTTON2_PIN); //True when pressed, false otherwise - Next! false
+    if (thisState2 && !prevState2) { //True and (!False = True) PASSED - Next! False && False
+
+        PORTB |= LED_PIN; //Turn LED On
+
+        /* Read data from EEPROM */
+        uint16_t stringLen = eeprom_read_word(SIZE_BLOCK_START+2);
+
+        uint16_t startOffset = SKIP_START;
+        uint16_t prevLength = eeprom_read_word(SIZE_BLOCK_START);
+        if (prevLength != 0xff) {
+            startOffset = startOffset+prevLength;
+        }
+
+        uint16_t count;
+        for (count = 0; count < stringLen; count++) {
+            uchar currentChar = eeprom_read_byte(count+startOffset);
+            sendKey(currentChar);
+        }
+
+        PORTB &= ~LED_PIN; //Turn LED Off at the end
+
+        _delay_ms(50); //Delay just a bit
+
+        prevState2 = !prevState2;
+    } else if (!thisState2 && prevState2) {
+        prevState2 = !prevState2;
+    }
 
 }
 

@@ -151,6 +151,13 @@ int main(int argc, char **argv) {
 		nBytes = usb_control_msg(handle, 
             USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_OUT, 
 			USB_DATA_IN, 0, 0, argv[2], strlen(argv[2])+1, 5000);
+	} else if (strcmp(argv[1], "write2") == 0 && argc > 2) {
+		printHeader();
+		printf(" > Writing...\n");
+		printf("\n");
+		nBytes = usb_control_msg(handle, 
+            USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_OUT, 
+			USB_DATA_IN, 1, 0, argv[2], strlen(argv[2])+1, 5000);
 	}
 	
 	if(nBytes < 0) {
