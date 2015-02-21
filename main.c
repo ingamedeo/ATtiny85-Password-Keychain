@@ -38,7 +38,9 @@ PB0, PB2 = USB data lines
 
 #define SKIP_START 15
 #define SIZE_BLOCK_START 1 //Start saving the string sizes at block 1 (2nd block and 2 blocks length) (8 blocks 4*2)
-#define FLAG_START 9 //These are flags (1 if IN USE, 0 otherwise)
+#define FIRST_START_BLOCK 9 //If != 1, this is the device's first boot up
+
+#define BUTTONS_NUM 2
 
 #define USB_WRITE_COMMAND 4
 
@@ -167,25 +169,18 @@ uchar	usbFunctionSetup(uchar data[8]) {
     sizeBlock = SIZE_BLOCK_START+(buttonNumber*2); //Select size store block (NOTE! It's a uint16_t - unsigned int - it takes up 2 bytes!)
     startOffset = SKIP_START;
 
-    uchar prevFlag = 0;
-    uchar thisFlag = eeprom_read_byte(buttonNumber+9);
-    uchar nextFlag = 0;
-
-    if (buttonNumber!=1) { //Last button
-        nextFlag = eeprom_read_byte(buttonNumber+1+9);
-    }
-
     /* The lengths of this, prev and succ strings */
     uint16_t prevLen = 0;
-    uint16_t thisOldLen = 0;
+    uint16_t thisOldLen = eeprom_read_word(sizeBlock);
     uint16_t nextLen = 0;
-    if (thisFlag == 1) { thisOldLen = eeprom_read_word(sizeBlock); }
-    if (nextFlag == 1) { nextLen = eeprom_read_word(sizeBlock+2); }
 
     if (buttonNumber!=0) {
-        prevFlag = eeprom_read_byte(buttonNumber+9-1); //Read prev flag
-        if (prevFlag == 1) { prevLen = eeprom_read_word(sizeBlock-2); }
+        prevLen = eeprom_read_word(sizeBlock-2);
         startOffset = startOffset+prevLen; //I start writing from this block
+    }
+
+    if (buttonNumber!=(BUTTONS_NUM-1)) {
+        nextLen = eeprom_read_word(sizeBlock+2);
     }
 
     if (nextLen != 0) {
@@ -195,20 +190,18 @@ uchar	usbFunctionSetup(uchar data[8]) {
         for (k = nextLen-1; k >=0; k--) { //-1? Length is read as < not =<
         uchar currentChar = eeprom_read_byte(k+startOffset+thisOldLen);
         if (currentChar != 0xff) {
-          eeprom_write_byte(k+startOffset+receivedLength, currentChar);
+          eeprom_update_byte(k+startOffset+receivedLength, currentChar);
         }
     }
     } else { //From left to right
         for (k = 0; k < nextLen; k++) {
        uchar currentChar = eeprom_read_byte(k+startOffset+thisOldLen);
         if (currentChar != 0xff) {
-          eeprom_write_byte(k+startOffset+receivedLength, currentChar);
+          eeprom_update_byte(k+startOffset+receivedLength, currentChar);
         }
     }
     }
 }
-
-    eeprom_write_byte(buttonNumber+9, 1); //Set this one to 1
 
     receivedProcessed = 0;
     return USB_NO_MSG;
@@ -224,9 +217,9 @@ uchar usbFunctionWrite(uchar *data, uchar len) {
     uint16_t i;
 
     /* Write data from EEPROM */
-    eeprom_write_word(sizeBlock, receivedLength); //Write total length first, we won't read further
+    eeprom_update_word(sizeBlock, receivedLength); //Write total length first, we won't read further
     for (i = 0; receivedProcessed < receivedLength && i < len; i++, receivedProcessed++) {
-        eeprom_write_byte(receivedProcessed+startOffset, data[i]);
+        eeprom_update_byte(receivedProcessed+startOffset, data[i]);
     }
 
     if (receivedProcessed == receivedLength) {
@@ -276,7 +269,7 @@ void    usbEventResetReady(void) {
      cli();
      calibrateOscillator();
      sei();
-    eeprom_write_byte(0, OSCCAL);   /* store the calibrated value in EEPROM */
+    eeprom_update_byte(0, OSCCAL);   /* store the calibrated value in EEPROM */
  }
 
 /* ------------------------------------------------------------------------- */
@@ -315,6 +308,17 @@ int main(void) {
         OSCCAL = calibrationValue;
     }
 
+    /* First Start Check */
+    uchar firstStart = eeprom_read_byte(FIRST_START_BLOCK);
+    if (firstStart!=1) {
+        int s_i;
+        for (s_i = 0; s_i < BUTTONS_NUM; s_i++) {
+            eeprom_update_word(SIZE_BLOCK_START+(s_i*2), 0);
+        }
+        eeprom_update_byte(FIRST_START_BLOCK, 1);
+    }
+    /* First Start Check END */
+    
     usbDeviceDisconnect();
     for(i=0;i<20;i++){  /* 300 ms disconnect */
     _delay_ms(15);
