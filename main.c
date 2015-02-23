@@ -169,6 +169,8 @@ uchar	usbFunctionSetup(uchar data[8]) {
     receivedLength = (uint16_t) rq->wLength.word; //Save length of the data we are receiving from a computer
     buttonNumber = (uint16_t) rq->wValue.word; //Get button number
 
+    receivedLength = receivedLength-1; // (-1 don't save terminator)
+
     sizeBlock = SIZE_BLOCK_START+(buttonNumber*2); //Select size store block (NOTE! It's a uint16_t - unsigned int - it takes up 2 bytes!)
     startOffset = SKIP_START;
 
@@ -367,6 +369,11 @@ usbInit();
             uchar currentChar = eeprom_read_byte(count+SKIP_START);
             sendKey(currentChar);
         }
+        
+        /* Send terminator manually at the end ;) (We save 1 byte of EEPROM! Yeah) */
+        if (stringLen!=0) {
+            sendKey('\0');
+        }
 
         PORTB &= ~LED_PIN; //Turn LED Off at the end
 
@@ -396,6 +403,11 @@ usbInit();
         for (count = 0; count < stringLen; count++) {
             uchar currentChar = eeprom_read_byte(count+startOffset);
             sendKey(currentChar);
+        }
+
+        /* Send terminator manually at the end ;) (We save 1 byte of EEPROM! Yeah) */
+        if (stringLen!=0) {
+            sendKey('\0');
         }
 
         PORTB &= ~LED_PIN; //Turn LED Off at the end
