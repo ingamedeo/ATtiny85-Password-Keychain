@@ -130,6 +130,23 @@ bool check(usb_dev_handle *handle, int* nBytes, int newLen, int buttonNumber) {
 	}
 }
 
+void writeData(usb_dev_handle *handle, int* nBytes, char* data, int buttonNumber) {
+	printHeader();
+		printf(" > Checking... ");
+		if (check(handle, nBytes, strlen(data), buttonNumber)) {
+			printf("PASSED!\n");
+			printf(" > Writing...\n");
+			printf("\n");
+			*nBytes = usb_control_msg(handle, 
+				USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_OUT, 
+				USB_DATA_IN, buttonNumber, 0, data, strlen(data)+1, 5000);
+		} else {
+			printf("FAILED! Size exceeded, max size is 500 characters total!\n");
+			printf("\n");
+			exit(1);
+		}
+}
+
 int main(int argc, char **argv) {
 	usb_dev_handle *handle = NULL;
 	int nBytes = 0;
@@ -163,35 +180,9 @@ int main(int argc, char **argv) {
 	}
 
 	if(strcmp(argv[1], "write") == 0 && argc > 2) {
-		printHeader();
-		printf(" > Checking... ");
-		if (check(handle, &nBytes, strlen(argv[2]), 0)) {
-			printf("PASSED!\n");
-			printf(" > Writing...\n");
-			printf("\n");
-			nBytes = usb_control_msg(handle, 
-				USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_OUT, 
-				USB_DATA_IN, 0, 0, argv[2], strlen(argv[2])+1, 5000);
-		} else {
-			printf("FAILED! Size exceeded, max size is 500 characters total!\n");
-			printf("\n");
-			exit(1);
-		}
+		writeData(handle, &nBytes, argv[2], 0);
 	} else if (strcmp(argv[1], "write2") == 0 && argc > 2) {
-		printHeader();
-		printf(" > Checking... ");
-		if (check(handle, &nBytes, strlen(argv[2]), 1)) {
-			printf("PASSED!\n");
-			printf(" > Writing...\n");
-			printf("\n");
-			nBytes = usb_control_msg(handle, 
-				USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_OUT, 
-				USB_DATA_IN, 1, 0, argv[2], strlen(argv[2])+1, 5000);
-		} else {
-			printf("FAILED! Size exceeded, max size is 500 characters total!\n");
-			printf("\n");
-			exit(1);
-		}
+		writeData(handle, &nBytes, argv[2], 1);
 	}
 
 	if(nBytes < 0) {
