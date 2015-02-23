@@ -43,6 +43,7 @@ PB0, PB2 = USB data lines
 #define BUTTONS_NUM 2
 
 #define USB_WRITE_COMMAND 4
+#define USB_DATA_OUT 5
 
 #define UTIL_BIN4(x)        (uchar)((0##x & 01000)/64 + (0##x & 0100)/16 + (0##x & 010)/4 + (0##x & 1))
 #define UTIL_BIN8(hi, lo)   (uchar)(UTIL_BIN4(hi) * 16 + UTIL_BIN4(lo))
@@ -57,6 +58,8 @@ static uchar    idleRate;           /* in 4 ms units */
 volatile static uchar LED_state = 0xff; // received from PC
 
 uint16_t receivedProcessed = 0, receivedLength = 0, buttonNumber, sizeBlock, startOffset; //Used to receive data from PC
+
+static uchar replyBuf[2]; //Buffer to store replies to the PC
 
 const PROGMEM char usbHidReportDescriptor[USB_CFG_HID_REPORT_DESCRIPTOR_LENGTH] = { /* USB report descriptor */
     0x05, 0x01,                    // USAGE_PAGE (Generic Desktop)
@@ -202,9 +205,22 @@ uchar	usbFunctionSetup(uchar data[8]) {
     }
     }
 }
-
     receivedProcessed = 0;
     return USB_NO_MSG;
+
+} else if (rq->bRequest == USB_DATA_OUT) {
+    int i;
+    uint16_t sizeTot = 0;
+    uint16_t currentRewrite = (uint16_t) rq->wValue.word;
+    for (i = 0; i < BUTTONS_NUM; i++) {
+        if (currentRewrite != i) {
+            sizeTot = sizeTot + eeprom_read_word(SIZE_BLOCK_START+(i*2));
+        }
+    }
+    replyBuf[0] = sizeTot & 0xFF;
+    replyBuf[1] = sizeTot >> 8;
+    usbMsgPtr = replyBuf;
+    return sizeof(replyBuf);
 }
 
 return 0;
