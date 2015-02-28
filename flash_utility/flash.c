@@ -163,7 +163,7 @@ int main(int argc, char **argv) {
 		printf(" This utility allows you to send data to your ATtiny85 V-USB String Replay device through USB Interface.\n");
 		printf("\n");
 		printf(" The device should be detected automatically.\n\n > Plug in your device and run:\n");
-		printf(" %s write <string>\n", argv[0]);
+		printf(" %s write[1-2-3-4] <string>\n", argv[0]);
 		printf("\n");
 		exit(1);
 	}
@@ -183,6 +183,10 @@ int main(int argc, char **argv) {
 		writeData(handle, &nBytes, argv[2], 0);
 	} else if (strcmp(argv[1], "write2") == 0 && argc > 2) {
 		writeData(handle, &nBytes, argv[2], 1);
+	}  else if (strcmp(argv[1], "write3") == 0 && argc > 2) {
+		writeData(handle, &nBytes, argv[2], 2);
+	}  else if (strcmp(argv[1], "write4") == 0 && argc > 2) {
+		writeData(handle, &nBytes, argv[2], 3);
 	}
 
 	if(nBytes < 0) {
