@@ -17,10 +17,14 @@ What is V-USB?
 
 Source: [obdev.at]
 
-Version
+HW Board
 ----
 
-0.1 (Stuffy)
+Rev: A
+
+![alt tag](https://raw.githubusercontent.com/ingamedeo/ATtiny85-V-USB-String-Replay/master/hw/board_top.png)
+![alt tag](https://raw.githubusercontent.com/ingamedeo/ATtiny85-V-USB-String-Replay/master/hw/board.png)
+![alt tag](https://raw.githubusercontent.com/ingamedeo/ATtiny85-V-USB-String-Replay/master/hw/schematic.png)
 
 Check out my code!
 --------------
