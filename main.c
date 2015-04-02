@@ -119,6 +119,7 @@ const PROGMEM char usbHidReportDescriptor[USB_CFG_HID_REPORT_DESCRIPTOR_LENGTH] 
  
 /* ------------------------------------------------------------------------- */
 
+//String.fromCharCode((96 <= key && key <= 105) ? key-48 : key)
  static void buildReport(uchar key) {
 
     /* Send Key + Shift if MAIUSC */
