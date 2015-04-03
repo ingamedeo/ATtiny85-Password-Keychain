@@ -1,4 +1,4 @@
-ATtiny85-V-USB-String-Replay
+Password-Keychain (ATtiny85 based)
 =========
 
 V-USB Library based project, heavily based on EasyLogger.
@@ -22,9 +22,9 @@ HW Board
 
 Rev: A
 
-![alt tag](https://raw.githubusercontent.com/ingamedeo/ATtiny85-V-USB-String-Replay/master/hw/board_top.png)
-![alt tag](https://raw.githubusercontent.com/ingamedeo/ATtiny85-V-USB-String-Replay/master/hw/board.png)
-![alt tag](https://raw.githubusercontent.com/ingamedeo/ATtiny85-V-USB-String-Replay/master/hw/schematic.png)
+![alt tag](https://raw.githubusercontent.com/ingamedeo/ATtiny85-Password-Keychain/master/hw/board_top.png)
+![alt tag](https://raw.githubusercontent.com/ingamedeo/ATtiny85-Password-Keychain/master/hw/board.png)
+![alt tag](https://raw.githubusercontent.com/ingamedeo/ATtiny85-Password-Keychain/master/hw/schematic.png)
 
 Check out my code!
 --------------
@@ -32,7 +32,7 @@ Check out my code!
 ##### To clone this repo, just:
 
 ```sh
-git clone https://github.com/ingamedeo/ATtiny85-V-USB-String-Replay.git
+git clone https://github.com/ingamedeo/ATtiny85-Password-Keychain.git
 ```
 
 License
