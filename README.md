@@ -32,7 +32,7 @@ Check out my code!
 ##### To clone this repo, just:
 
 ```sh
-git clone https://github.com/ingamedeo/DatabaseTest.git
+git clone https://github.com/ingamedeo/ATtiny85-V-USB-String-Replay.git
 ```
 
 License
