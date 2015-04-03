@@ -12,6 +12,7 @@
 
 #define USB_DATA_IN 4
 #define USB_DATA_OUT 5
+#define USB_FWVERDW 6
 
  typedef enum { false, true } bool;
 
@@ -130,8 +131,16 @@ bool check(usb_dev_handle *handle, int* nBytes, int newLen, int buttonNumber) {
 	}
 }
 
+uint16_t getFWVersion(usb_dev_handle *handle, int* nBytes) {
+	unsigned char buffer[4];
+	*nBytes = usb_control_msg(handle, 
+		USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_IN, 
+		USB_FWVERDW, 0, 0, (char*)buffer, sizeof(buffer), 5000);
+	uint16_t value = buffer[0] | (buffer[1] << 8);
+	return value;
+}
+
 void writeData(usb_dev_handle *handle, int* nBytes, char* data, int buttonNumber) {
-	printHeader();
 		printf(" > Checking... ");
 		if (check(handle, nBytes, strlen(data), buttonNumber)) {
 			printf("PASSED!\n");
@@ -149,17 +158,17 @@ void writeData(usb_dev_handle *handle, int* nBytes, char* data, int buttonNumber
 
 int main(int argc, char **argv) {
 	usb_dev_handle *handle = NULL;
-	int nBytes = 0;
+	int nBytes = -1;
+
+	printHeader();
 
 	if(geteuid() != 0) {
-		printHeader();
 		printf(" WARNING! You should run this program as root!\n");
 		printf("\n");
 		exit(1);
 	}
 	
 	if(argc < 2) {
-		printHeader();
 		printf(" This utility allows you to send data to your ATtiny85 V-USB String Replay device through USB Interface.\n");
 		printf("\n");
 		printf(" The device should be detected automatically.\n\n > Plug in your device and run:\n");
@@ -171,7 +180,6 @@ int main(int argc, char **argv) {
 	handle = usbOpenDevice(0x16c0,"ingamedeo.no-ip.org",0x27db,"ATtiny85 USB");
 	
 	if(handle == NULL) {
-		printHeader();
 		fprintf(stderr, " Can't connect to your device!\n");
 		printf("\n");
 		printf(" Double check that it's plugged in or try a different USB port.\n");
@@ -187,6 +195,11 @@ int main(int argc, char **argv) {
 		writeData(handle, &nBytes, argv[2], 2);
 	}  else if (strcmp(argv[1], "write4") == 0 && argc > 2) {
 		writeData(handle, &nBytes, argv[2], 3);
+	} else if (strcmp(argv[1], "fw") == 0 && argc == 2) {
+		uint16_t fwVerCode = getFWVersion(handle, &nBytes);
+		printf(" Your device FW version is: %hu\n\n", fwVerCode);
+		usb_close(handle);
+		exit(0);
 	}
 
 	if(nBytes < 0) {

@@ -34,7 +34,7 @@ all:	main.hex utility
 	$(COMPILE) -S $< -o $@
 
 flash:	all
-	gksudo /home/ingamedeo/Copy/micronucleus/commandline/micronucleus /home/ingamedeo/Copy/ATtiny85-V-USB-String-Replay/main.hex
+	$(AVRDUDE) -U flash:w:main.hex:i
 
 utility: flash_utility/flash.c
 	gcc -O -Wall flash_utility/flash.c -o flash_utility/flash -lusb

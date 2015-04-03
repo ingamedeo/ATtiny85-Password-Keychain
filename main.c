@@ -17,11 +17,13 @@
 #include "usbdrv.h"
 #include "oddebug.h"
 
+uint16_t fwVerCode = 1;
+
 /*
 Pin assignment:
-PB1 = key input (active low with pull-up)
-PB3 = analog input (ADC3)
-PB4 = LED output (active high)
+PB1 = button 1 pin (active low with pull-up)
+PB3 = button 2 pin (active low with pull-up)
+PB4 = LED pin
 
 PB0, PB2 = USB data lines
 */
@@ -36,15 +38,16 @@ PB0, PB2 = USB data lines
 #define START_FLAG 100
 #define WAIT_FLAG 101
 
-#define SKIP_START 15
-#define SIZE_BLOCK_START 1 //Start saving the string sizes at block 1 (2nd block and 2 blocks length) (8 blocks 4*2)
-#define FIRST_START_BLOCK 9 //If != 1, this is the device's first boot up
+#define SKIP_START 9 //Optimized from 15
+#define SIZE_BLOCK_START 0 //Start saving the string sizes at block 1 (2nd block and 2 blocks length) (8 blocks 4*2)
+#define FIRST_START_BLOCK 8 //If != 1, this is the device's first boot up
 
 #define PW_NUM 4
 #define LONG_PRESS_TIMEOUT 200 //In ms/10
 
 #define USB_WRITE_COMMAND 4
 #define USB_DATA_OUT 5
+#define USB_FWVERDW 6
 
 #define UTIL_BIN4(x)        (uchar)((0##x & 01000)/64 + (0##x & 0100)/16 + (0##x & 010)/4 + (0##x & 1))
 #define UTIL_BIN8(hi, lo)   (uchar)(UTIL_BIN4(hi) * 16 + UTIL_BIN4(lo))
@@ -227,6 +230,11 @@ return USB_NO_MSG;
     replyBuf[1] = sizeTot >> 8;
     usbMsgPtr = replyBuf;
     return sizeof(replyBuf);
+} else if (rq->bRequest == USB_FWVERDW) { /* Send FW Version Info to host */
+    replyBuf[0] = fwVerCode & 0xFF;
+    replyBuf[1] = fwVerCode >> 8;
+    usbMsgPtr = replyBuf;
+    return sizeof(replyBuf);
 }
 
 return 0;
@@ -252,46 +260,7 @@ uchar usbFunctionWrite(uchar *data, uchar len) {
     }
 }
 
-static void calibrateOscillator(void) {
-    int frameLength, targetLength = (unsigned)(1499 * (double)F_CPU / 10.5e6 + 0.5);
-    int bestDeviation = 9999;
-    uchar trialCal, bestCal = 0, step, region; // = 0 is not really of any use here, I just don't want the compiler to stress me :P
-
-    // do a binary search in regions 0-127 and 128-255 to get optimum OSCCAL
-    for(region = 0; region <= 1; region++) {
-        frameLength = 0;
-        trialCal = (region == 0) ? 0 : 128;
-        
-        for(step = 64; step > 0; step >>= 1) { 
-            if(frameLength < targetLength) // true for initial iteration
-                trialCal += step; // frequency too low
-            else
-                trialCal -= step; // frequency too high
-
-            OSCCAL = trialCal;
-            frameLength = usbMeasureFrameLength();
-            
-            if(abs(frameLength-targetLength) < bestDeviation) {
-                bestCal = trialCal; // new optimum found
-                bestDeviation = abs(frameLength -targetLength);
-            }
-        }
-    }
-
-    OSCCAL = bestCal;
-}
-/*
-Calibration runtime replaced for ATtiny85
-*/
-
-void    usbEventResetReady(void) {
-    /* Disable interrupts during oscillator calibration since
-     * usbMeasureFrameLength() counts CPU cycles.
-     */
-     cli();
-     calibrateOscillator();
-     sei();
-    eeprom_update_byte(0, OSCCAL);   /* store the calibrated value in EEPROM */
+void usbEventResetReady(void) {
  }
 
 /* ------------------------------------------------------------------------- */
@@ -318,8 +287,6 @@ void    usbEventResetReady(void) {
 }
 
 void sendBurstOfData(uint16_t buttonFlag) {
-    PORTB |= LED_PIN; //Turn LED On
-
     sizeBlock = SIZE_BLOCK_START+(buttonFlag*2);
 
         /* Read data from EEPROM */
@@ -345,22 +312,22 @@ void sendBurstOfData(uint16_t buttonFlag) {
         sendKey('\0');
     }
 
-        PORTB &= ~LED_PIN; //Turn LED Off at the end
-
-        _delay_ms(1000); //Delay just a bit
+    for (i = 0; i <= buttonFlag; i++) {
+PORTB |= LED_PIN; //Turn LED On
+wdt_reset();
+_delay_ms(250);
+wdt_reset();
+PORTB &= ~LED_PIN; //Turn LED Off at the end
+_delay_ms(250);
+wdt_reset();
+    }
+    
     }
 
     int main(void) {
         uint16_t i;
         bool prevState = false, thisState;
         bool prevState2 = false, thisState2;
-
-        uchar   calibrationValue;
-
-    calibrationValue = eeprom_read_byte(0); /* calibration value from last time */
-        if(calibrationValue != 0xff){
-            OSCCAL = calibrationValue;
-        }
 
     /* First Start Check */
         uchar firstStart = eeprom_read_byte((uint8_t*)FIRST_START_BLOCK);
@@ -381,6 +348,7 @@ void sendBurstOfData(uint16_t buttonFlag) {
 
     DDRB |= LED_PIN;   /* output for LED */
     PORTB |= BUTTON1_PIN;  /* pull-up on key input */
+    PORTB |= BUTTON2_PIN; /* UNTESTED */
 
     wdt_enable(WDTO_1S);
 
