@@ -112,9 +112,15 @@ static usb_dev_handle * usbOpenDevice(int vendor, char *vendorName,
 void printHeader() {
 	printf("\n");
 	printf(" --------------------------------------------\n");
-	printf("  ATtiny85 V-USB String Replay Flash Utility\n");
+	printf("  ATtiny85 Password Keychain Flash Utility\n");
 	printf(" --------------------------------------------\n");
 	printf("\n");
+}
+
+void invalidSyn(usb_dev_handle *handle) {
+	printf(" Invalid syntax! Please retry.\n\n");
+	usb_close(handle);
+	exit(0);
 }
 
 bool check(usb_dev_handle *handle, int* nBytes, int newLen, int buttonNumber) {
@@ -172,7 +178,7 @@ int main(int argc, char **argv) {
 		printf(" This utility allows you to send data to your ATtiny85 V-USB String Replay device through USB Interface.\n");
 		printf("\n");
 		printf(" The device should be detected automatically.\n\n > Plug in your device and run:\n");
-		printf(" %s write[1-2-3-4] <string>\n", argv[0]);
+		printf(" %s write <button number (es. 1)> <string>\n", argv[0]);
 		printf("\n");
 		exit(1);
 	}
@@ -187,26 +193,28 @@ int main(int argc, char **argv) {
 		exit(1);
 	}
 
-	if(strcmp(argv[1], "write") == 0 && argc > 2) {
-		writeData(handle, &nBytes, argv[2], 0);
-	} else if (strcmp(argv[1], "write2") == 0 && argc > 2) {
-		writeData(handle, &nBytes, argv[2], 1);
-	}  else if (strcmp(argv[1], "write3") == 0 && argc > 2) {
-		writeData(handle, &nBytes, argv[2], 2);
-	}  else if (strcmp(argv[1], "write4") == 0 && argc > 2) {
-		writeData(handle, &nBytes, argv[2], 3);
+	if(strcmp(argv[1], "write") == 0 && argc == 4) {
+		int parLen = strlen(argv[2]);
+		if (argv[2][0] < '0' || argv[2][0] > '9' || parLen>1) {
+			invalidSyn(handle);
+		} else {
+		int numInt = argv[2][0] - '0';
+		writeData(handle, &nBytes, argv[3], (numInt-1));
+		}
 	} else if (strcmp(argv[1], "fw") == 0 && argc == 2) {
 		uint16_t fwVerCode = getFWVersion(handle, &nBytes);
 		printf(" Your device FW version is: %hu\n\n", fwVerCode);
 		usb_close(handle);
 		exit(0);
+	} else {
+		invalidSyn(handle);
 	}
 
 	if(nBytes < 0) {
 		fprintf(stderr, " Error: %s. Please retry\n", usb_strerror());
 		printf("\n");
 	} else {
-		printf(" Enjoy! %lu bytes written.\n", strlen(argv[2]));
+		printf(" Enjoy! %lu bytes written.\n", strlen(argv[3]));
 		printf("\n");
 	}
 

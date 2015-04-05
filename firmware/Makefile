@@ -11,7 +11,7 @@ AVRDUDE = avrdude -p attiny85 -P /dev/ttyACM0 -b 19200 -c avrisp -v
 # to an USB to serial converter to a Mac running Mac OS X.
 # Choose your favorite programmer and interface.
 
-COMPILE = avr-gcc -Wall -Os -Iusbdrv -mmcu=attiny85 -DF_CPU=16500000 -DDEBUG_LEVEL=0
+COMPILE = avr-gcc -Wall -Os -I. -Iusbdrv -mmcu=attiny85 -DF_CPU=16500000 -DDEBUG_LEVEL=0
 # NEVER compile the final product with debugging! Any debug output will
 # distort timing so that the specs can't be met.
 
@@ -34,10 +34,10 @@ all:	main.hex utility
 	$(COMPILE) -S $< -o $@
 
 flash:	all
-	gksudo /home/ingamedeo/Copy/micronucleus/commandline/micronucleus /home/ingamedeo/Copy/ATtiny85-V-USB-String-Replay/main.hex
+	gksudo /home/ingamedeo/Copy/micronucleus/commandline/micronucleus /home/ingamedeo/Copy/ATtiny85-V-USB-String-Replay/firmware/main.hex
 
-utility: flash_utility/flash.c
-	gcc -O -Wall flash_utility/flash.c -o flash_utility/flash -lusb
+utility: ../flash_utility/flash.c
+	gcc -O -Wall ../flash_utility/flash.c -o ../flash_utility/flash -lusb
 
 # Fuse high byte:
 # 0xdd = 1 1 0 1   1 1 0 1
@@ -64,7 +64,7 @@ readcal:
 
 
 clean:
-	rm -f main.hex main.lst main.obj main.cof main.list main.map main.eep.hex main.bin *.o usbdrv/*.o main.s usbdrv/oddebug.s usbdrv/usbdrv.s flash_utility/flash
+	rm -f main.hex main.lst main.obj main.cof main.list main.map main.eep.hex main.bin *.o usbdrv/*.o main.s usbdrv/oddebug.s usbdrv/usbdrv.s ../flash_utility/flash
 
 # file targets:
 main.bin:	$(OBJECTS)
