@@ -26,6 +26,16 @@ Rev: A
 ![alt tag](https://raw.githubusercontent.com/ingamedeo/ATtiny85-Password-Keychain/master/hw/board.png)
 ![alt tag](https://raw.githubusercontent.com/ingamedeo/ATtiny85-Password-Keychain/master/hw/schematic.png)
 
+Flash Utility Installation
+--------------
+
+##### Mac OS X (Note! Brew must be installed! http://brew.sh/)
+```sh
+brew install libusb && brew install libusb-compat
+sudo echo "/usr/local/lib" >> /etc/ld.so.conf"
+gcc -o flash flash.c -lusb
+```
+
 Check out my code!
 --------------
 
