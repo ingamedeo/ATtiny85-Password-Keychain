@@ -32,7 +32,7 @@ Flash Utility Installation
 ##### Mac OS X (Note! Brew must be installed! http://brew.sh/)
 ```sh
 brew install libusb && brew install libusb-compat
-sudo echo "/usr/local/lib" >> /etc/ld.so.conf"
+sudo echo "/usr/local/lib" >> "/etc/ld.so.conf"
 gcc -o flash flash.c -lusb
 ```
 
